@@ -1,2 +1,2 @@
-# OptCtl
-OptCtl provides professional argument parser in C
+# ArgCtl
+ArgCtl provides professional argument parser in C
