@@ -6,7 +6,7 @@
 #define MAX_LONG_ARG_SIZE 16
 #define MAX_SHORT_ARG_SIZE 8
 
-typedef enum {FALSE, TRUE} Bool;
+typedef enum {false, true} bool;
 
 typedef enum {
     INTEGER,
@@ -19,7 +19,7 @@ typedef enum {
 typedef union {
     signed long integer_val;
     float float_val;
-    Bool bool_val;
+    bool bool_val;
     unsigned char *string_val;
     unsigned char *custome_val;
 } Custom;
@@ -30,11 +30,11 @@ typedef struct {
     unsigned char *help;
     unsigned short larg_cksum;
     unsigned short sarg_cksum;
-    unsigned int nargs;
+    unsigned int nval;
     Types type;
-    Bool (*check_type)(void *val);
-    Bool required;
-    Bool specified;
+    bool (*check_type)(void *val);
+    bool required;
+    bool specified;
     Custome value;
     Custome default_val;
 } Arg;
@@ -51,7 +51,7 @@ typedef struct {
 typedef struct {
     Flow *flows;
     Flow indep;
-    Flow main;
+    Flow current_flow;
     unsigned char *help;
     unsigned int flow_count;
 } ArgCtl;
