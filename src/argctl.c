@@ -27,7 +27,7 @@ static void create_indep_help_argument(ArgCtl *ctl) {
     flag.check_type = check_bool_type;
     flag.required = false;
     flag.default_val.bool_val = false;
-    alloc_arg(&ctl->indep);
+    ctl->indep.arg_count++;
     copy_arg(&ctl->indep, &flag);
     return;
 }
@@ -48,6 +48,10 @@ ArgCtl start_argctl(const unsigned char *prog, const unsigned char *msg) {
     create_indep_help_argument(&ctl);
     copy_help_message(&ctl, msg);
     return ctl;
+}
+
+void start_parser(ArgCtl *ctl, unsigned int argc, unsigned char *arg[]) {
+
 }
 
 static void copy_flow_name(Flow *flow, const unsigned char *name) {
@@ -81,7 +85,7 @@ static void create_flow_help_argument(Flow *flow) {
     flag.check_type = check_bool_type;
     flag.required = false;
     flag.default_val.bool_val = false;
-    alloc_arg(flow);
+    flow->arg_count++;
     copy_arg(flow, &flag);
     return;
 }
@@ -95,6 +99,7 @@ Flow *add_flow(
     copy_flow_name(&flow, name);
     copy_flow_help_message(&flow, help);
     create_flow_help_argument(&flow);
+    ctl->flow_count++;
     return copy_flow(ctl, &flow);
 }
 
@@ -144,7 +149,6 @@ Option *add_option(
     const unsigned char *sarg,
     const unsigned char *tname,
     const unsigned char *help,
-    const unsigned int max_nval,
     Types type,
     bool (*check_type)(void *val),
     bool required,
@@ -154,10 +158,11 @@ Option *add_option(
     copy_arg_names(&opt, larg, sarg, tname);
     copy_arg_help_message(&opt, help);
     set_default_value(&opt, type, default_val);
-    opt.max_nval = max_nval;
     opt.type = type;
     opt.check_type = check_type;
     opt.required = required;
+    flow->arg_count++;
+    flow->req_count += (required) 1 : 0;
     return copy_arg(flow, &opt);
 }
 
@@ -177,6 +182,8 @@ Flag *add_flag(
     flag.type = BOOL;
     flag.check_type = check_bool_type;
     flag.required = required;
+    flow->arg_count++;
+    flow->req_count += (required) 1 : 0;
     return copy_arg(flow, &flag);
 }
 

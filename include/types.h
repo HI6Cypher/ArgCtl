@@ -32,7 +32,6 @@ typedef struct {
     unsigned char *help;
     unsigned short larg_cksum;
     unsigned short sarg_cksum;
-    unsigned int nval;
     Types type;
     bool (*check_type)(void *val);
     bool required;
@@ -53,7 +52,7 @@ typedef struct {
 typedef struct {
     Flow *flows;
     Flow indep;
-    Flow current_flow;
+    Flow *current_flow;
     unsigned char name[MAX_PROG_NAME_SIZE];
     unsigned char *help;
     unsigned int flow_count;

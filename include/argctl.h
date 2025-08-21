@@ -8,7 +8,7 @@
 #include "utils/check_float_type.h"
 #include "utils/check_bool_type.h"
 #include "utils/check_string_type.h"
-#include "utils/search_tools.h"
+#include "utils/searcher.h"
 #include "utils/checksum.h"
 
 #include <stdlib.h>
@@ -41,8 +41,6 @@ Option *add_option(
     const unsigned char *sarg,
     const unsigned char *tname,
     const unsigned char *help,
-    const unsigned int nval,
-    const unsigned int max_nval,
     Types type,
     bool (*check_type)(void *val),
     bool required,
