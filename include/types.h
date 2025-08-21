@@ -1,8 +1,9 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#define MAX_PROG_NAME_SIZE 256
 #define MAX_FLOW_NAME_SIZE 16
-#define MAX_TYPE_NAME_SIZE 16
+#define MAX_TYPE_NAME_SIZE 32
 #define MAX_LONG_ARG_SIZE 16
 #define MAX_SHORT_ARG_SIZE 8
 
@@ -21,12 +22,13 @@ typedef union {
     float float_val;
     bool bool_val;
     unsigned char *string_val;
-    unsigned char *custome_val;
+    unsigned char *custom_val;
 } Custom;
 
 typedef struct {
     unsigned char larg[MAX_LONG_ARG_SIZE];
     unsigned char sarg[MAX_SHORT_ARG_SIZE];
+    unsigned char tname[MAX_TYPE_NAME_SIZE];
     unsigned char *help;
     unsigned short larg_cksum;
     unsigned short sarg_cksum;
@@ -35,8 +37,8 @@ typedef struct {
     bool (*check_type)(void *val);
     bool required;
     bool specified;
-    Custome value;
-    Custome default_val;
+    Custom value;
+    Custom default_val;
 } Arg;
 
 typedef struct {
@@ -52,6 +54,7 @@ typedef struct {
     Flow *flows;
     Flow indep;
     Flow current_flow;
+    unsigned char name[MAX_PROG_NAME_SIZE];
     unsigned char *help;
     unsigned int flow_count;
 } ArgCtl;
