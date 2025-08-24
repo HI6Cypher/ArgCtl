@@ -5,7 +5,7 @@ static void create_indep_flow(ArgCtl *ctl) {
     strcpy(ctl->indep.name, "indep");
     ctl->indep.help = (unsigned char *) malloc(sizeof (help_message));
     if (!ctl->indep.help)
-        raise_malloc_error("create_indep_flow()"); /* TODO */
+        raise_malloc_error(__func__, "help message of independent flow");
     else
         strcpy(ctl->indep.help, help_message);
     return;
@@ -18,13 +18,12 @@ static void create_indep_help_argument(ArgCtl *ctl) {
     strcpy(flag.sarg, "-h");
     flag.help = (unsigned char *) malloc(sizeof (help_message));
     if (!flag.help)
-        raise_malloc_error("create_indep_help_argument");
+        raise_malloc_error(__func__, "help message of flag");
     else
         strcpy(flag.help, help_message);
     flag.larg_cksum = checksum(flag.larg, strlen(flag.larg) + 1);
     flag.sarg_cksum = checksum(flag.sarg, strlen(flag.sarg) + 1);
     flag.type = BOOL;
-    flag.check_type = check_bool_type;
     flag.required = false;
     flag.default_val.bool_val = false;
     ctl->indep.arg_count++;
@@ -33,9 +32,11 @@ static void create_indep_help_argument(ArgCtl *ctl) {
 }
 
 static void copy_help_message(ArgCtl *ctl, const unsigned char *help) {
+    if (help == NULL)
+        raise_global_error(__func__, "Invalid help message");
     ctl->help = (unsigned char *) malloc(strlen(help) + 1);
     if (!ctl->help)
-        raise_malloc_error("append_help_message");
+        raise_malloc_error(__func__, "help message of ArgCtl");
     else
         strcpy(ctl->help, help);
     return;
@@ -47,11 +48,96 @@ ArgCtl start_argctl(const unsigned char *prog, const unsigned char *msg) {
     create_indep_flow(&ctl);
     create_indep_help_argument(&ctl);
     copy_help_message(&ctl, msg);
+    ctl.current_flow = NULL;
     return ctl;
 }
 
-void start_parser(ArgCtl *ctl, unsigned int argc, unsigned char *arg[]) {
+static void set_value(Arg *arg, unsigned char *val) {
+    struct typecheck_t check;
+    if (arg->typecheck == NULL && val == NULL) {
+        arg->value.bool_val = ~arg->default_val.bool_val;
+        return;
+    }
+    if (arg->typecheck == NULL && val != NULL) {
+        arg->value.custom_val = val;
+        return;
+    }
+    check = arg->typecheck(val);
+    if (check.isvalid)
+        switch (arg->type) {
+            case INTEGER :
+                arg->value.integer_val = check.integer_val;
+                break;
+            case FLOAT :
+                arg->value.float_val = check.float_val;
+                break;
+            case BOOL :
+                arg->value.bool_val = ~arg->default_val.bool_val;
+                break;
+            case STRING :
+                arg->value.string_val = check.string_val;
+                break;
+            case CUSTOM :
+            default :
+                arg->value.custom_val = check.custom_val;
+                break;
+        }
+    else
+        raise_invalid_type_error(arg->larg, arg->sarg, arg->tname);
+    return;
+}
 
+void start_parser(ArgCtl *ctl, unsigned int argc, unsigned char *argv[]) {
+    unsigned int i;
+    for (i = 1; i < argc; i++) {
+        struct global_search_t result = global_search(ctl, argv[i], ctl->current_flow != NULL);
+        bool skip;
+        if (result.found && !skip) {
+            switch (result.mt) {
+                case FLOW :
+                    ctl->current_flow = (Flow *) result.loc;
+                    break;
+                case INDEP_OPT :
+                    if (i + 1 < argc)
+                        set_value((Arg *) result.loc, argv[i + 1]);
+                    else
+                        raise_novalue_error(argv[i]);
+                    skip = true;
+                    break;
+                case INDEP_FLAG :
+                    set_value((Arg *) result.loc, NULL);
+                    break;
+                case DEPEN_OPT :
+                    if (i + 1 < argc)
+                        set_value((Option *) result.loc, argv[i + 1]);
+                    else
+                        raise_novalue_error(argv[i]);
+                    skip = true;
+                    break;
+                case DEPEN_FLAG :
+                    set_value((Flag *) result.loc, NULL);
+                    break;
+            }
+        skip = false;
+        }
+        else {
+            raise_notfound_error(argv[i]);
+        }
+    }
+    return;
+}
+
+void end_argctl(ArgCtl *ctl) {
+    unsigned int i, j;
+    free(ctl->current_flow);
+    free(ctl->help);
+    for (i = 0; i < ctl->flow_count; i++) {
+        free(ctl->flows[i].help);
+        for (j = 0; j < ctl->flows[i].arg_count; j++)
+            free(ctl->flows[i].args[j].help);
+        free(ctl->flows[i].args);
+    }
+    free(ctl->flows);
 }
 
 static void copy_flow_name(Flow *flow, const unsigned char *name) {
@@ -61,9 +147,11 @@ static void copy_flow_name(Flow *flow, const unsigned char *name) {
 }
 
 static void copy_flow_help_message(Flow *flow, const unsigned char *help) {
+    if (help == NULL)
+        raise_global_error(__func__, "Invalid help message");
     flow->help = (unsigned char *) malloc(strlen(help) + 1);
     if (!flow->help)
-        raise_malloc_error("copy_flow_help_message");
+        raise_malloc_error(__func__, "help message of flow");
     else
         strcpy(flow->help, help);
     return;
@@ -76,13 +164,12 @@ static void create_flow_help_argument(Flow *flow) {
     strcpy(flag.sarg, "-h");
     flag.help = (unsigned char *) malloc(sizeof (help_message));
     if (!flag.help)
-        raise_malloc_error("create_flow_help_argument");
+        raise_malloc_error(__func__, "help message of flag");
     else
         strcpy(flag.help, help_message);
     flag.larg_cksum = checksum(flag.larg, strlen(flag.larg) + 1);
     flag.sarg_cksum = checksum(flag.sarg, strlen(flag.sarg) + 1);
     flag.type = BOOL;
-    flag.check_type = check_bool_type;
     flag.required = false;
     flag.default_val.bool_val = false;
     flow->arg_count++;
@@ -103,7 +190,7 @@ Flow *add_flow(
     return copy_flow(ctl, &flow);
 }
 
-static void copy_arg_names(Arg *arg, const unsigned char *larg, const unsigned char *sarg, unsigned char *tname) {
+static void copy_arg_names(Arg *arg, const unsigned char *larg, const unsigned char *sarg, const unsigned char *tname) {
     strcpy(arg->larg, larg);
     strcpy(arg->sarg, sarg);
     strcpy(arg->tname, tname);
@@ -113,9 +200,11 @@ static void copy_arg_names(Arg *arg, const unsigned char *larg, const unsigned c
 }
 
 static void copy_arg_help_message(Arg *arg, const unsigned char *help) {
+    if (help == NULL)
+        raise_global_error(__func__, "Invalid help message");
     arg->help = (unsigned char *) malloc(strlen(help) + 1);
     if (!arg->help)
-        raise_malloc_error("copy_arg_help_message");
+        raise_malloc_error(__func__, "help message of argument");
     else
         strcpy(arg->help, help);
     return;
@@ -150,7 +239,7 @@ Option *add_option(
     const unsigned char *tname,
     const unsigned char *help,
     Types type,
-    bool (*check_type)(void *val),
+    struct typecheck_t (*typecheck)(void *val),
     bool required,
     void *default_val
 ) {
@@ -159,10 +248,10 @@ Option *add_option(
     copy_arg_help_message(&opt, help);
     set_default_value(&opt, type, default_val);
     opt.type = type;
-    opt.check_type = check_type;
+    opt.typecheck = typecheck;
     opt.required = required;
     flow->arg_count++;
-    flow->req_count += (required) 1 : 0;
+    flow->req_count += (required) ? 1 : 0;
     return copy_arg(flow, &opt);
 }
 
@@ -180,10 +269,9 @@ Flag *add_flag(
     copy_arg_help_message(&flag, help);
     flag.default_val.bool_val = default_val;
     flag.type = BOOL;
-    flag.check_type = check_bool_type;
     flag.required = required;
     flow->arg_count++;
-    flow->req_count += (required) 1 : 0;
+    flow->req_count += (required) ? 1 : 0;
     return copy_arg(flow, &flag);
 }
 
@@ -206,20 +294,20 @@ void print_global_help_message(ArgCtl *ctl) {
         printf("\t%s : %s\n", ctl->flows[i].name, ctl->flows[i].help);
     printf("Arguments :\n");
     for (i = 0; i < ctl->indep.arg_count; i++) {
-        if (ctl->indep->args[i].type == BOOL)
+        if (ctl->indep.args[i].type == BOOL)
             printf(
                 "\t%s %s : %s\n",
-                ctl->indep->args[i].sarg,
-                ctl->indep->args[i].larg,
-                ctl->indep->args[i].help
+                ctl->indep.args[i].sarg,
+                ctl->indep.args[i].larg,
+                ctl->indep.args[i].help
             );
         else
             printf(
                 "\t%s %s  <%s> : %s\n",
-                ctl->indep->args[i].sarg,
-                ctl->indep->args[i].larg,
-                ctl->indep->args[i].tname,
-                ctl->indep->args[i].help,
+                ctl->indep.args[i].sarg,
+                ctl->indep.args[i].larg,
+                ctl->indep.args[i].tname,
+                ctl->indep.args[i].help
             );
     }
     return;
@@ -245,7 +333,7 @@ void print_flow_help_message(Flow *flow) {
                 flow->args[i].sarg,
                 flow->args[i].larg,
                 flow->args[i].tname,
-                flow->args[i].help,
+                flow->args[i].help
             );
     }
     return;

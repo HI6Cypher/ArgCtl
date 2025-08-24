@@ -4,15 +4,14 @@
 #include "types.h"
 #include "allocator.h"
 #include "utils/error_handler.h"
-#include "utils/check_integer_type.h"
-#include "utils/check_float_type.h"
-#include "utils/check_bool_type.h"
-#include "utils/check_string_type.h"
+#include "utils/typecheck.h"
 #include "utils/searcher.h"
 #include "utils/checksum.h"
 
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #define get_current_flow(ctl) (ctl->current_flow)
 #define get_flow_help_message(flow) (flow->help)
@@ -27,7 +26,7 @@ ArgCtl start_argctl(const unsigned char *prog, const unsigned char *msg);
 
 void start_parser(ArgCtl *ctl, unsigned int argc, unsigned char *arg[]);
 
-void end_arg_ctl(ArgCtl *ctl);
+void end_argctl(ArgCtl *ctl);
 
 Flow *add_flow(
     ArgCtl *ctl,
@@ -42,7 +41,7 @@ Option *add_option(
     const unsigned char *tname,
     const unsigned char *help,
     Types type,
-    bool (*check_type)(void *val),
+    struct typecheck_t (*typecheck)(void *val),
     bool required,
     void *default_val
 );

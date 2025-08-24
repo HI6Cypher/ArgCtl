@@ -4,8 +4,10 @@
 #include "types.h"
 #include "utils/error_handler.h"
 #include <stdlib.h>
+#include <string.h>
 
 Flow *copy_flow(ArgCtl *ctl, Flow *flow);
+
 Arg *copy_arg(Flow *flow, Arg *arg);
 
 #endif

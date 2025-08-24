@@ -1,6 +1,8 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#include <stddef.h>
+
 #define MAX_PROG_NAME_SIZE 256
 #define MAX_FLOW_NAME_SIZE 16
 #define MAX_TYPE_NAME_SIZE 32
@@ -32,10 +34,10 @@ typedef struct {
     unsigned char *help;
     unsigned short larg_cksum;
     unsigned short sarg_cksum;
-    Types type;
-    bool (*check_type)(void *val);
     bool required;
     bool specified;
+    Types type;
+    struct typecheck_t (*typecheck)(void *val);
     Custom value;
     Custom default_val;
 } Arg;
@@ -44,8 +46,8 @@ typedef struct {
     unsigned char name[MAX_FLOW_NAME_SIZE];
     unsigned char *help;
     unsigned short cksum;
-    unsigned int req_count;
-    unsigned int arg_count;
+    size_t req_count;
+    size_t arg_count;
     Arg *args;
 } Flow;
 
@@ -55,8 +57,18 @@ typedef struct {
     Flow *current_flow;
     unsigned char name[MAX_PROG_NAME_SIZE];
     unsigned char *help;
-    unsigned int flow_count;
+    size_t flow_count;
 } ArgCtl;
+
+struct typecheck_t {
+    bool isvalid;
+    union {
+        long integer_val;
+        float float_val;
+        unsigned char *string_val;
+        unsigned char *custom_val;
+    };
+};
 
 typedef Arg Option;
 typedef Arg Flag;
