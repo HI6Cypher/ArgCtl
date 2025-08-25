@@ -1,8 +1,7 @@
 #include "utils/checksum.h"
 
 unsigned short checksum(const void *data, size_t len) {
-    register long sum = 0;
-    unsigned short checksum;
+    register unsigned long sum = 0;
     const unsigned short *ptr = data;
     while (len > 1) {
         sum += (unsigned short) *(ptr++);
@@ -12,6 +11,5 @@ unsigned short checksum(const void *data, size_t len) {
         sum += *(unsigned char *) ptr;
     while (sum >> 16)
         sum = (sum & 0xffff) + (sum >> 16);
-    checksum = ~sum;
-    return checksum;
+    return (unsigned short) ~sum;
 }

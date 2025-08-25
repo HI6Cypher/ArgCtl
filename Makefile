@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -g -fPIC -std=c89 -O2 -Iinclude
+CFLAGS := -g -fPIC -std=c89 -Iinclude
 SRC_DIR := src
 OBJ_DIR := build
 LIB_NAME := libargctl.so

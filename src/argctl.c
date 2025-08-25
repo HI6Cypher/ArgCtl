@@ -8,6 +8,8 @@ static void create_indep_flow(ArgCtl *ctl) {
         raise_malloc_error(__func__, "help message of independent flow");
     else
         strcpy(ctl->indep.help, help_message);
+    ctl->indep.arg_count = ctl->indep.req_count = 0;
+    ctl->indep.args = NULL;
     return;
 }
 
@@ -44,22 +46,33 @@ static void copy_help_message(ArgCtl *ctl, const unsigned char *help) {
 
 ArgCtl start_argctl(const unsigned char *prog, const unsigned char *msg) {
     ArgCtl ctl;
-    strncpy(ctl.name, prog, sizeof (ctl.name));
+    ctl.flow_count = 0;
+    ctl.current_flow = NULL;
+    ctl.flows = NULL;
+    strcpy(ctl.name, prog);
     create_indep_flow(&ctl);
     create_indep_help_argument(&ctl);
     copy_help_message(&ctl, msg);
-    ctl.current_flow = NULL;
     return ctl;
 }
 
 static void set_value(Arg *arg, unsigned char *val) {
     struct typecheck_t check;
+    arg->specified = true;
     if (arg->typecheck == NULL && val == NULL) {
         arg->value.bool_val = ~arg->default_val.bool_val;
         return;
     }
     if (arg->typecheck == NULL && val != NULL) {
-        arg->value.custom_val = val;
+        switch (arg->type) {
+            case STRING :
+                arg->value.string_val = val;
+                break;
+            case CUSTOM :
+            default :
+                arg->value.custom_val = val;
+                break;
+        }
         return;
     }
     check = arg->typecheck(val);
@@ -87,12 +100,32 @@ static void set_value(Arg *arg, unsigned char *val) {
     return;
 }
 
+static void handle_required(Flow *flow, Arg *arg) {
+    if (arg->required)
+        flow->req_count--;
+    return;
+}
+
+static bool check_help(Arg *arg) {
+    unsigned char larg_help[] = "--help";
+    unsigned char sarg_help[] = "-h";
+    if (
+        arg->larg_cksum == checksum(larg_help, sizeof (larg_help)) &&
+        arg->sarg_cksum == checksum(sarg_help, sizeof (sarg_help)) &&
+        arg->type == BOOL
+    )
+        return true;
+    else
+        return false;
+}
+
 void start_parser(ArgCtl *ctl, unsigned int argc, unsigned char *argv[]) {
     unsigned int i;
     for (i = 1; i < argc; i++) {
         struct global_search_t result = global_search(ctl, argv[i], ctl->current_flow != NULL);
         bool skip;
         if (result.found && !skip) {
+            if (result.mt != FLOW)
             switch (result.mt) {
                 case FLOW :
                     ctl->current_flow = (Flow *) result.loc;
@@ -102,20 +135,28 @@ void start_parser(ArgCtl *ctl, unsigned int argc, unsigned char *argv[]) {
                         set_value((Arg *) result.loc, argv[i + 1]);
                     else
                         raise_novalue_error(argv[i]);
+                    handle_required(&ctl->indep, result.loc);
                     skip = true;
                     break;
                 case INDEP_FLAG :
                     set_value((Arg *) result.loc, NULL);
+                    handle_required(&ctl->indep, result.loc);
+                    if (check_help(result.loc))
+                        print_global_help_message(ctl);
                     break;
                 case DEPEN_OPT :
                     if (i + 1 < argc)
                         set_value((Option *) result.loc, argv[i + 1]);
                     else
                         raise_novalue_error(argv[i]);
+                    handle_required(ctl->current_flow, result.loc);
                     skip = true;
                     break;
                 case DEPEN_FLAG :
                     set_value((Flag *) result.loc, NULL);
+                    handle_required(ctl->current_flow, result.loc);
+                    if (check_help(result.loc))
+                        print_flow_help_message(ctl->current_flow);
                     break;
             }
         skip = false;
@@ -129,7 +170,6 @@ void start_parser(ArgCtl *ctl, unsigned int argc, unsigned char *argv[]) {
 
 void end_argctl(ArgCtl *ctl) {
     unsigned int i, j;
-    free(ctl->current_flow);
     free(ctl->help);
     for (i = 0; i < ctl->flow_count; i++) {
         free(ctl->flows[i].help);
@@ -138,6 +178,12 @@ void end_argctl(ArgCtl *ctl) {
         free(ctl->flows[i].args);
     }
     free(ctl->flows);
+    return;
+}
+
+static void init_flow(Flow *flow) {
+    flow->arg_count = flow->req_count = 0;
+    flow->args = NULL;
 }
 
 static void copy_flow_name(Flow *flow, const unsigned char *name) {
@@ -183,6 +229,7 @@ Flow *add_flow(
     const unsigned char *help
 ) {
     Flow flow;
+    init_flow(&flow);
     copy_flow_name(&flow, name);
     copy_flow_help_message(&flow, help);
     create_flow_help_argument(&flow);
@@ -211,6 +258,8 @@ static void copy_arg_help_message(Arg *arg, const unsigned char *help) {
 }
 
 static void set_default_value(Arg *arg, Types type, void *default_val) {
+    if (default_val == NULL)
+        return;
     switch (type) {
         case INTEGER :
             arg->default_val.integer_val = *(signed long *) default_val;
@@ -244,12 +293,12 @@ Option *add_option(
     void *default_val
 ) {
     Option opt;
-    copy_arg_names(&opt, larg, sarg, tname);
-    copy_arg_help_message(&opt, help);
-    set_default_value(&opt, type, default_val);
     opt.type = type;
     opt.typecheck = typecheck;
     opt.required = required;
+    copy_arg_names(&opt, larg, sarg, tname);
+    copy_arg_help_message(&opt, help);
+    set_default_value(&opt, type, default_val);
     flow->arg_count++;
     flow->req_count += (required) ? 1 : 0;
     return copy_arg(flow, &opt);
@@ -265,23 +314,18 @@ Flag *add_flag(
     bool default_val
 ) {
     Flag flag;
+    flag.type = BOOL;
+    flag.required = required;
     copy_arg_names(&flag, larg, sarg, tname);
     copy_arg_help_message(&flag, help);
     flag.default_val.bool_val = default_val;
-    flag.type = BOOL;
-    flag.required = required;
     flow->arg_count++;
     flow->req_count += (required) ? 1 : 0;
     return copy_arg(flow, &flag);
 }
 
-
-Custom *get_option_value(Option *opt) {
-    return (opt->specified) ? &opt->value : &opt->default_val;
-}
-
-bool get_flag_value(Flag *flag) {
-    return (flag->specified) ? flag->value.bool_val : flag->default_val.bool_val;
+Custom get_option_value(Option *opt) {
+    return (opt->specified) ? opt->value : opt->default_val;
 }
 
 void print_global_help_message(ArgCtl *ctl) {

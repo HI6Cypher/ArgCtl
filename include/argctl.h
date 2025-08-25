@@ -12,15 +12,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <assert.h>
 
 #define get_current_flow(ctl) (ctl->current_flow)
+#define get_current_flow_name(ctl) (ctl.current_flow->name)
 #define get_flow_help_message(flow) (flow->help)
 #define print_flow_help(flow) printf(flow->help)
 #define is_specified(arg) (arg->specified)
-#define get_value_count(arg) (arg->nval)
-#define get_max_value_count(arg) (arg->max_nval)
 #define get_argument_help_message(arg) (arg->help)
 #define print_arg_help(arg) printf(arg->help)
+#define get_flag_value(flag) ((flag->specified) ? flag->value.bool_val : flag->default_val.bool_val)
 
 ArgCtl start_argctl(const unsigned char *prog, const unsigned char *msg);
 
@@ -56,9 +57,7 @@ Flag *add_flag(
     bool default_val
 );
 
-Custom *get_option_value(Option *opt);
-
-bool get_flag_value(Flag *flg);
+Custom get_option_value(Option *opt);
 
 void print_global_help_message(ArgCtl *ctl);
 
